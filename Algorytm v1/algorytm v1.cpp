@@ -26,9 +26,8 @@ void video_capture(cv::VideoCapture& videocapture, cv::Mat& frame);
 void video_capture_fast(cv::VideoCapture& videocapture, cv::Mat& frame);
 static void saveCameraParams(string& filename, cv::Size& imageSize, cv::Mat& cameraMatrix, cv::Mat& distCoeffs);
 static void readCameraParams(string& filename, cv::Size& imageSize, cv::Mat& cameraMatrix, cv::Mat& distCoeffs);
-void getEulerAngles(cv::Mat &rotCamerMatrix, cv::Vec3d &eulerAngles);
 static void ClickCoordinates(int event, int x, int y, int flags, void* );
-void worldPoint(cv::Mat rotationMatrix, cv::Vec3d rvec, cv::Vec3d tvec, cv::Mat intrinsics, cv::Point3d realPoint, cv::Point3d worldPoint);
+vector <float> calculate_markerVectors(vector<vector<cv::Point2f>> corners, cv::Point2f clickPt);
 cv::Point3d pt(-1,1,1);
 cv::Point3d wPoint;
 bool new_Point = false;
@@ -256,45 +255,24 @@ int prog()
 			//bool cv::solvePnP(InputArray objectPoints, InputArray imagePoints, InputArray cameraMatrix, InputArray distCoeffs, OutputArray rvec, OutputArray tvec,
 				//bool useExtrinsicGuess = false, int flags = SOLVEPNP_ITERATIVE);
 			
+
+
 			cv::Scalar markObjPoints;
 			cv::aruco::estimatePoseSingleMarkers(markerCorners, 50, cameraMatrix, distCoeffs, temp_rvecs, temp_tvecs);
 			cv::aruco::drawDetectedMarkers(frame, markerCorners, markerIds);
 			for (int i = 0; i < markerIds.size(); i++)
 			cv::aruco::drawAxis(frame, cameraMatrix, distCoeffs, temp_rvecs[i], temp_tvecs[i], 2);
-
-						
-			cv::Vec3d rodri_rvec = temp_rvecs[0];
-
-			cv::Mat rodri_tvec = cv::Mat (temp_tvecs[0]);
-
-			cv::Rodrigues(rodri_rvec, rot_matrix);
-
-			cv::Mat rot_matrix_t = rot_matrix.t();
-			
-			//cv::Mat rodri_tvec2 = -rot_matrix_t * rodri_tvec.t();			// X,Y,Z coordinates of marker in camera coordianate system
-			
-			double * tmp = rot_matrix_t.ptr<double>(0);
-			cv::Point3f camWorld(tmp[0],tmp[1], tmp[2]);
-			
+		
 			cv::Point3f tvec_3f(temp_tvecs[0][0], temp_tvecs[0][1], temp_tvecs[0][2]);
 			
 
 
-			cv::Vec3d tvec ((double*)rodri_tvec.data);
 			// TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TESTTEST TEST TESTTEST TEST TESTTEST TEST TEST
-			cv::Mat points2d;
 			
-
-			//cv::Vec3d eulerAngles;
-			//getEulerAngles(rot_matrix, eulerAngles);
-			//cv::Point2d yaw(eulerAngles[1]);			// point keeping marker vector/X,Y axis rotation @ Rodrigues			
 			
-			//worldPoint(rot_matrix, rodri_rvec, rodri_tvec, cameraMatrix, pt, wPoint);
-
 			cout <<"POINTCAM" << pt.x << "," << pt.y << endl;
 			
 			cout << "MARKER POSE"<< temp_tvecs[0][0] << "," << temp_tvecs[0][0] << endl;
-			//cout << eulerAngles[1] << endl;
 
 			// TEST TEST TESTTEST TEST TESTTEST TEST TESTTEST TEST TESTTEST TEST TESTTEST TEST TEST
 		}
@@ -460,13 +438,7 @@ bool Send_UartComm(char* data, int dat_len)
 		CloseHandle(hCOM); //close the handle
 			return retVal;
 }
-void calculate_prototype(cv::Point2f position, cv::Point destination, float& distance_x, float& distance_y, float& angle)
-{
-	distance_x = destination.x - position.x;
-	distance_y = destination.x - position.x;
-	angle = atan2(distance_x, distance_y)*180/ M_PI;
 
-}
 bool linear_control(cv::Point2f position, cv::Point destination,char* msg)
 {	
 	int v_val=50;
@@ -497,63 +469,40 @@ bool linear_control(cv::Point2f position, cv::Point destination,char* msg)
 	return true;
 }
 
-void getEulerAngles(cv::Mat &rotCamerMatrix, cv::Vec3d &eulerAngles) {
 
-	cv::Mat cameraMatrix, rotMatrix, transVect, rotMatrixX, rotMatrixY, rotMatrixZ;
-	double* _r = rotCamerMatrix.ptr<double>();
-	double projMatrix[12] = { _r[0],_r[1],_r[2],0,
-						  _r[3],_r[4],_r[5],0,
-						  _r[6],_r[7],_r[8],0 };
-
-	decomposeProjectionMatrix(cv::Mat(3, 4, CV_64FC1, projMatrix),
-		cameraMatrix,
-		rotMatrix,
-		transVect,
-		rotMatrixX,
-		rotMatrixY,
-		rotMatrixZ,
-		eulerAngles);
-}
-void worldPoint(cv::Mat rotationMatrix, cv::Vec3d rvec, cv::Vec3d tvec, cv::Mat intrinsics, cv::Point3d imgPoint, cv::Point3d worldPoint)
+vector <float> calculate_markerVectors(vector<vector<cv::Point2f>> corners, cv::Point2f clickPt)
 {
-	cv::Mat uvPoint = cv::Mat::ones(3, 1, cv::DataType<double>::type); //u,v,1
+	vector <float> vec_AB;
+	vec_AB[0] = corners[0][1].x - corners[0][0].x;		// vector AB [Bx-Ax,By-Ay]
+	vec_AB[1] = corners[0][1].y - corners[0][0].y;
+	vector <float> vec_AC;
+	vec_AC[0] = corners[0][2].x - corners[0][0].x;		// vector AC [Cx-Ax,Cy-Ay]
+	vec_AC[1] = corners[0][2].y - corners[0][0].y;
 
-// image point
-	uvPoint.at<double>(0, 0) = imgPoint.x; //got this point using mouse callback
-	uvPoint.at<double>(1, 0) = imgPoint.y;
-	
-	cv::Mat tempMat, tempMat2;
-	double s, zConst = 0;
-	tempMat = rotationMatrix.inv() * intrinsics.inv() * uvPoint;
-	tempMat2 = rotationMatrix.inv() * cv::Mat(tvec);
-	s = zConst + tempMat2.at<double>(2, 0);
-	s /= tempMat.at<double>(2, 0);
-	cv::Mat wcPoint = rotationMatrix.inv() * (s * intrinsics.inv() * uvPoint - tvec);
+	cv::Point2f F;
+	F.x = corners[0][1].x - (vec_AB[0] / 2);				//  F = B - (AB/2)
+	F.y = corners[0][1].y - (vec_AB[1] / 2);
+	cv::Point2f S;
+	S.x = corners[0][2].x - (vec_AC[0] / 2);				//  S = C -(AC/2)
+	S.y = corners[0][2].y - (vec_AC[1] / 2);
 
-	cv::Point3f Point(wcPoint.at<double>(0, 0), wcPoint.at<double>(1, 0), wcPoint.at<double>(2, 0)); // point in world coordinates
-	
-	worldPoint.x = wcPoint.at<double>(0, 0);
-	worldPoint.y = wcPoint.at<double>(1, 0);
-	worldPoint.z = wcPoint.at<double>(2, 0);
-	cout << "POINTWRLD:"<< Point.x << "," << Point.y << endl;
+	vector <float> vec_SF;
+	vec_SF[0] = F.x - S.x;
+	vec_SF[1] = F.y - S.y;
+
+	vector <float> vec_ST;							// vector to target point
+	vec_ST[0] = clickPt.x - S.x;
+	vec_ST[1] = clickPt.y - S.y;
+
+	float dot_prod = vec_SF[0] * vec_ST[0] + vec_SF[1] * vec_ST[1];
+	float scalarSF = (vec_SF[0] * vec_SF[0] + vec_SF[1] * vec_SF[1]);
+	float scalarST = (vec_ST[0] * vec_ST[0] + vec_ST[1] * vec_ST[1]);
+	float theta = acos(dot_prod / (scalarSF*scalarST)); // angle between vector pointing front of vehicle and vector to destination
+
+	vector <float> pos_img;
+	pos_img.push_back(S.x);
+	pos_img.push_back(S.y);
+	pos_img.push_back(theta);
+
+	return pos_img;
 }
-
-//void pid(float Kp, float Ki, float Kd, float d_t, float destPoint, float actPoint, double max_I, double min_I) 
-//{	
-//	double integr;
-//	double error_prev;
-//
-//	double error = destPoint - actPoint;
-//	
-//	double P = Kp * error;
-//
-//	integr += error * d_t;
-//	double I = Ki * integr;
-//
-//	double deriv = (error - error_prev) / d_t;
-//	double D = Kd * deriv;
-//	
-//	if (integr > max_I) integr = max_I;
-//	else if (integr < min_I) integr = min_I;
-//
-//}
