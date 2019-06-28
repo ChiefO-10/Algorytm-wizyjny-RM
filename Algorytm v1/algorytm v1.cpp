@@ -1,6 +1,4 @@
-﻿
-
-#include<opencv2/opencv.hpp>
+﻿#include<opencv2/opencv.hpp>
 #include<opencv2/core/core.hpp>
 #include<opencv2/highgui/highgui.hpp>
 #include<opencv2/imgproc/imgproc.hpp>
@@ -19,17 +17,21 @@
 
 using namespace std;
 
+HANDLE hCOM;
 
 int calibration();
 int prog();
+bool setupUART();
 void video_capture(cv::VideoCapture& videocapture, cv::Mat& frame);
 void video_capture_fast(cv::VideoCapture& videocapture, cv::Mat& frame);
 static void saveCameraParams(string& filename, cv::Size& imageSize, cv::Mat& cameraMatrix, cv::Mat& distCoeffs);
 static void readCameraParams(string& filename, cv::Size& imageSize, cv::Mat& cameraMatrix, cv::Mat& distCoeffs);
 static void ClickCoordinates(int event, int x, int y, int flags, void* );
-vector <float> calculate_markerVectors(vector<vector<cv::Point2f>> corners, cv::Point2f clickPt);
-cv::Point3d pt(-1,1,1);
-cv::Point3d wPoint;
+vector <double> calculate_markerVectors(vector<vector<cv::Point2f>> corners, cv::Point2d clickPt);
+bool Send_UartComm(char* data, int dat_len);
+
+string control(vector <double> position);
+cv::Point2d pt(1,1);
 bool new_Point = false;
 
 int main() 
@@ -47,6 +49,7 @@ int main()
 			calibration();
 			break;
 		case 2:
+			setupUART();
 			prog();
 			break;
 		case 3:
@@ -70,7 +73,7 @@ int calibration()
 
 	bool proceed = false;
 
-	capCalib.open("http://192.168.43.1:8080/video");				//pobranie obrazu z IPwebcam
+	capCalib.open("http://192.168.0.20:8080/video");				//pobranie obrazu z IPwebcam
 
 	if (!capCalib.isOpened()) {                                  // if unable to open image
 		cout << "error: video stream unavailable";     // show error message on command line
@@ -209,25 +212,24 @@ int prog()
 	cv::Mat frame;
 	cv::Mat frameGS;
 	
+	
 
 	string filename = "Parameters.xml";
 	cv::Mat cameraMatrix, distCoeffs;
 	cv::Size imageSize;
 	readCameraParams(filename, imageSize, cameraMatrix, distCoeffs);
 	vector<cv::Vec3d> temp_rvecs, temp_tvecs;
-	cv::Mat rot_matrix= cv::Mat::zeros(3,3,CV_64FC1);
-	
-	char out_msg[10];							//uart message to robot; max lenght 11  (L - 100R - 100e)
-	
+	cv::Mat rot_matrix= cv::Mat::zeros(3,3,CV_64FC1);	
 	const cv::Ptr<cv::aruco::Dictionary> markDict = cv::aruco::getPredefinedDictionary(cv::aruco::PREDEFINED_DICTIONARY_NAME::DICT_6X6_250);  //stworzenie obiektu dictionary bedacego markerem gotowego zestawu?
 
+
 	cv::VideoCapture capIP;
-	capIP.open("http://192.168.43.1:8080//video");				//pobranie obrazu z IPwebcam
+	capIP.open("http://192.168.0.20:8080/video");				//pobranie obrazu z IPwebcam
 
 	if (!capIP.isOpened()) {                                  // if unable to open image
 		cout << "error: video stream unavailable"<<endl;     // show error message on command line
-		_getch();                                               // may have to modify this line if not using Windows
-		return(0);                                              // and exit program
+		_getch();                                               
+		return(0);                                              
 	}
 
 	double iWidth = imageSize.width;
@@ -235,53 +237,49 @@ int prog()
 	cout << "Frame resolution: " << iWidth << "x" << iHeight << endl;	//wartosc rozdziellczosci obrazu wejsciowego
 
 	char charCheckForEscKey = 0;
-
 	while (charCheckForEscKey != 27 && capIP.isOpened())								//petla przerywana przyciskiem esc
 	{
 		video_capture_fast(capIP, frame);
-
-
 		//cv::cvtColor(frame, frameGS, CV_BGR2GRAY);					//zmiana klatki wejsciowej na odcienie szarosci
 
 		vector<int> markerIds;
-		vector<vector<cv::Point2f>> markerCorners, rejectedCandidates;
-		//const cv::Ptr<cv::aruco::DetectorParameters> DetePara;
-
+		vector<vector<cv::Point2f>> markerCorners;
+		vector <double> pose;
 		
 		cv::aruco::detectMarkers(frame, markDict, markerCorners, markerIds);
 
 		if (markerIds.size() > 0) {
-			
-			//bool cv::solvePnP(InputArray objectPoints, InputArray imagePoints, InputArray cameraMatrix, InputArray distCoeffs, OutputArray rvec, OutputArray tvec,
-				//bool useExtrinsicGuess = false, int flags = SOLVEPNP_ITERATIVE);
-			
 
-
-			cv::Scalar markObjPoints;
 			cv::aruco::estimatePoseSingleMarkers(markerCorners, 50, cameraMatrix, distCoeffs, temp_rvecs, temp_tvecs);
 			cv::aruco::drawDetectedMarkers(frame, markerCorners, markerIds);
 			for (int i = 0; i < markerIds.size(); i++)
 			cv::aruco::drawAxis(frame, cameraMatrix, distCoeffs, temp_rvecs[i], temp_tvecs[i], 2);
-		
-			cv::Point3f tvec_3f(temp_tvecs[0][0], temp_tvecs[0][1], temp_tvecs[0][2]);
+			
+			cv::Point3f tvec_3f(temp_tvecs[0][0], temp_tvecs[0][1], temp_tvecs[0][2]);	
+			
+			if (new_Point == true) {
+				pose = calculate_markerVectors(markerCorners, pt);
+				cout << "MARKER POSE " << pose[0] << "," << pose[1] << " theta:" << pose[2] <<endl;
+				
+				string msg = control(pose);
+				int len = msg.length();
+				char *UART_msg = new char[len + 1];
+				strcpy_s(UART_msg, 11, msg.c_str());
+				Send_UartComm(UART_msg, len);
+
+				cout << "POINTCAM " << pt.x << "," << pt.y << endl;
+				for (int i = 0; i < len; i++) cout << UART_msg[i];
+				cout << endl;
+			}
+			
 			
 
-
-			// TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TEST TESTTEST TEST TESTTEST TEST TESTTEST TEST TEST
 			
 			
-			cout <<"POINTCAM" << pt.x << "," << pt.y << endl;
-			
-			cout << "MARKER POSE"<< temp_tvecs[0][0] << "," << temp_tvecs[0][0] << endl;
-
-			// TEST TEST TESTTEST TEST TESTTEST TEST TESTTEST TEST TESTTEST TEST TESTTEST TEST TEST
 		}
-
-
 
 		cv::namedWindow("Video stream", CV_WINDOW_AUTOSIZE);		//okno wyswietlania
 		cv::imshow("Video stream", frame);						//wyswietlanie obrazu
-
 		
 		cv::setMouseCallback("Video stream", ClickCoordinates, NULL);
 		if (new_Point == true) {
@@ -290,10 +288,9 @@ int prog()
 			new_Point = false;
 		}
 		cv::waitKey(1);
-		
+		if (charCheckForEscKey != 27) break;
 	}
-
-	
+	CloseHandle(hCOM); //close the handle
 }
 void video_capture(cv::VideoCapture& videocapture, cv::Mat& frame)
 {
@@ -310,23 +307,18 @@ void video_capture(cv::VideoCapture& videocapture, cv::Mat& frame)
 	}
 	videocapture.retrieve(frame);
 }
-
 void video_capture_fast(cv::VideoCapture& videocapture, cv::Mat& frame)
 {
 	int i;
 	for (i = 0; i < 5; i++) {
 		bool bFrameread_1;
 		bool bFrameRead_1 = videocapture.grab();				//wczytanie nowej klatki
-
 		if (!bFrameRead_1) {
 			cout << " error: Frame read failed" << endl;
 		}
-
-
 	}
 	videocapture.retrieve(frame);
 }
-
 //zapis do pliku
 class Data
 {
@@ -374,7 +366,6 @@ void read(const cv::FileNode& node, Data& x, const Data& default_value = Data())
 		x.read(node);
 }
 
-
 static void saveCameraParams(string& filename, cv::Size& imageSize, cv::Mat& cameraMatrix, cv::Mat& distCoeffs)
 {
 	cv::FileStorage fs(filename, cv::FileStorage::WRITE);
@@ -387,7 +378,6 @@ static void saveCameraParams(string& filename, cv::Size& imageSize, cv::Mat& cam
 	
 	fs.release();
 }
-
 static void readCameraParams(string& filename, cv::Size& imageSize, cv::Mat& cameraMatrix, cv::Mat& distCoeffs)
 {
 cv::FileStorage fs;
@@ -399,7 +389,6 @@ fs["Camera_Matrix"] >> cameraMatrix;
 fs["Distortion_Coefficients"] >> distCoeffs;
 
 }
-
 static void ClickCoordinates(int event, int x, int y, int flags, void* )
 {
 	if (event == cv::EVENT_LBUTTONDOWN)
@@ -413,96 +402,116 @@ static void ClickCoordinates(int event, int x, int y, int flags, void* )
 		
 	}
 }
-bool Send_UartComm(char* data, int dat_len)
+bool setupUART()
 {
-		DCB dcbParam;
-		HANDLE hCOM = CreateFile(	"COM5",
-									GENERIC_WRITE,
-									0,
-									NULL,
-									OPEN_EXISTING,
-									0,
-									NULL	);
+	DCB dcbParam;
+		hCOM = CreateFile("COM5",
+		GENERIC_WRITE,
+		0,
+		NULL,
+		OPEN_EXISTING,
+		0,
+		NULL);
 
-		if (!GetCommState(hCOM, &dcbParam))
-			return false;
-		dcbParam.BaudRate = CBR_9600; //9600 Baud
-		dcbParam.ByteSize = 8; //8 data bits
-		dcbParam.Parity = NOPARITY; //no parity
-		dcbParam.StopBits = ONESTOPBIT; //1 stop
-		if (!SetCommState(hCOM, &dcbParam))
-			return false;	
+	if (!GetCommState(hCOM, &dcbParam)) cout<<"NO VAIABLE COM PORT"<<endl;
+	dcbParam.BaudRate = CBR_9600; //9600 Baud
+	dcbParam.ByteSize = 8; //8 data bits
+	dcbParam.Parity = NOPARITY; //no parity
+	dcbParam.StopBits = ONESTOPBIT; //1 stop
+	if (!SetCommState(hCOM, &dcbParam))
+		cout << "COM PORT ERROR" << endl;
 
-		DWORD byteswritten;
-		bool retVal = WriteFile(hCOM, data, dat_len, &byteswritten, NULL);
-		CloseHandle(hCOM); //close the handle
-			return retVal;
-}
+	COMMTIMEOUTS timeout = { 0 };
+	timeout.ReadIntervalTimeout = 50;
+	timeout.ReadTotalTimeoutConstant = 50;
+	timeout.ReadTotalTimeoutMultiplier = 50;
+	timeout.WriteTotalTimeoutConstant = 50;
+	timeout.WriteTotalTimeoutMultiplier = 10;
 
-bool linear_control(cv::Point2f position, cv::Point destination,char* msg)
-{	
-	int v_val=50;
+	SetCommTimeouts(hCOM, &timeout);
 
-	char msg_buff[10];
-
-	float anglR=0;                                          // robot facing vector angle
-	float dist_x, dist_y, anglD, angl_diff;
-	calculate_prototype(position, destination, dist_x, dist_y, anglD);
-	angl_diff = anglD - anglR ;
-	if (angl_diff >= 3 || angl_diff <= -3){
-		
-		if (angl_diff >= 3) {
-
-			int ret = sprintf_s(msg_buff,sizeof(msg_buff), "L%dR-%de", v_val,v_val);		//turn left ; uart message to robot ; max lenght 11  ex.(L-100R-100e)
-			msg = msg_buff;
-		}
-		if (angl_diff <= -3) {
-			
-			int ret = sprintf_s(msg_buff, sizeof(msg_buff), "L-%dR%de", v_val, v_val);				//turn right ; uart message to robot ; max lenght 11  (L-100R-100e)
-			msg = msg_buff;
-		}
-	}
-	else {
-		sprintf_s(msg_buff, "L%dR%de", v_val, v_val);
-		msg = msg_buff;
-	}
 	return true;
 }
-
-
-vector <float> calculate_markerVectors(vector<vector<cv::Point2f>> corners, cv::Point2f clickPt)
+bool Send_UartComm(char* data, int dat_len)
 {
-	vector <float> vec_AB;
+		DWORD byteswritten;
+		bool retVal = WriteFile(hCOM, data, dat_len, &byteswritten, NULL);
+			return retVal;
+}
+vector <double> calculate_markerVectors(vector<vector<cv::Point2f>> corners, cv::Point2d clickPt)
+{
+
+	vector <double> vec_AB(2);
 	vec_AB[0] = corners[0][1].x - corners[0][0].x;		// vector AB [Bx-Ax,By-Ay]
 	vec_AB[1] = corners[0][1].y - corners[0][0].y;
-	vector <float> vec_AC;
+	vector <double> vec_BC(2);
+	vec_BC[0] = corners[0][2].x - corners[0][1].x;		// vector BC [Cx-Bx,Cy-By]
+	vec_BC[1] = corners[0][2].y - corners[0][1].y;
+	vector <double> vec_AC(2);
 	vec_AC[0] = corners[0][2].x - corners[0][0].x;		// vector AC [Cx-Ax,Cy-Ay]
 	vec_AC[1] = corners[0][2].y - corners[0][0].y;
 
 	cv::Point2f F;
 	F.x = corners[0][1].x - (vec_AB[0] / 2);				//  F = B - (AB/2)
 	F.y = corners[0][1].y - (vec_AB[1] / 2);
+	cv::Point2f G;
+	G.x = corners[0][2].x - (vec_BC[0] / 2);				//  G = C - (BC/2)
+	G.y = corners[0][2].y - (vec_BC[1] / 2);
 	cv::Point2f S;
 	S.x = corners[0][2].x - (vec_AC[0] / 2);				//  S = C -(AC/2)
 	S.y = corners[0][2].y - (vec_AC[1] / 2);
 
-	vector <float> vec_SF;
+	vector <double> vec_SF(2);
 	vec_SF[0] = F.x - S.x;
 	vec_SF[1] = F.y - S.y;
-
-	vector <float> vec_ST;							// vector to target point
+	vector <double> vec_SG(2);
+	vec_SG[0] = G.x - S.x;
+	vec_SG[1] = G.y - S.y;
+	vector <double> vec_ST(2);							// vector to target point
 	vec_ST[0] = clickPt.x - S.x;
 	vec_ST[1] = clickPt.y - S.y;
 
-	float dot_prod = vec_SF[0] * vec_ST[0] + vec_SF[1] * vec_ST[1];
-	float scalarSF = (vec_SF[0] * vec_SF[0] + vec_SF[1] * vec_SF[1]);
-	float scalarST = (vec_ST[0] * vec_ST[0] + vec_ST[1] * vec_ST[1]);
-	float theta = acos(dot_prod / (scalarSF*scalarST)); // angle between vector pointing front of vehicle and vector to destination
+	double dot_prod_SF = vec_SF[0] * vec_ST[0] + vec_SF[1] * vec_ST[1];
+	double dot_prod_SG = vec_SG[0] * vec_ST[0] + vec_SG[1] * vec_ST[1];
+	double scalarSF = sqrt(vec_SF[0] * vec_SF[0] + vec_SF[1] * vec_SF[1]);
+	double scalarSG = sqrt(vec_SG[0] * vec_SG[0] + vec_SG[1] * vec_SG[1]);
+	double scalarST = sqrt(vec_ST[0] * vec_ST[0] + vec_ST[1] * vec_ST[1]);
+	double alfa = (acos(dot_prod_SF / (scalarSF*scalarST)))* 180.0 / M_PI; // angle between vector pointing front of vehicle and vector to destination
+	double beta = (acos(dot_prod_SG / (scalarSG*scalarST)))* 180.0 / M_PI; // auxiliary angle to determinate in which quarter point is placed in respect to vehicle front  
+	double theta;
 
-	vector <float> pos_img;
+	if (alfa < 90 && beta < 90) theta = alfa;
+	if (alfa < 90 && beta > 90) theta = -alfa;
+	if (alfa > 90 && beta < 90) theta = alfa;
+	if (alfa > 90 && beta > 90) theta = -alfa;
+	vector <double> pos_img;
 	pos_img.push_back(S.x);
 	pos_img.push_back(S.y);
 	pos_img.push_back(theta);
+	
+	return pos_img;			// [x center, y center, theta]
+}
+string control(vector <double> position)
+{
+	int v_val = 50;
+	char control_msg[11];
+	
 
-	return pos_img;
+	if (position[2] >= 3 || position[2] <= -3) {
+		
+		if (position[2] >= 3) {
+			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR-%de", v_val, v_val);		//turn left ; uart message to robot ; max lenght 11  ex.(L-100R-100e)
+		}
+		if (position[2] <= -3) {
+			int ret = sprintf_s(control_msg, sizeof(control_msg), "L-%dR%de", v_val, v_val);		//turn right ; uart message to robot ; max lenght 11  (L-100R-100e)
+		}
+	}
+	else 
+	{
+		int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%de", v_val+20, v_val+20);		
+	}
+	
+	string control_srt(control_msg);
+
+	return control_srt;
 }
