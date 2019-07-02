@@ -28,7 +28,8 @@ static void saveCameraParams(string& filename, cv::Size& imageSize, cv::Mat& cam
 static void readCameraParams(string& filename, cv::Size& imageSize, cv::Mat& cameraMatrix, cv::Mat& distCoeffs);
 static void ClickCoordinates(int event, int x, int y, int flags, void* );
 vector <double> calculate_markerVectors(vector<vector<cv::Point2f>> corners, cv::Point2d clickPt);
-bool Send_UartComm(char* data, int dat_len);
+bool Send_UartComm(string data, int dat_len);
+bool Read_UartComm();
 
 string control(vector <double> position);
 cv::Point2d pt(1,1);
@@ -39,24 +40,31 @@ int main()
 	
 	for (int opt = 0; opt == 0;) {
 
+		bool condition = false;
+		while (condition == false)
+		{
+		
 		int option;
 		cout << "Chose action:" << endl << "1. Calibrate" << endl << "2. Run" << endl << "3. Close" << endl;
 		cin >> option;
 
-		switch (option)
-		{
-		case 1:
-			calibration();
-			break;
-		case 2:
-			setupUART();
-			prog();
-			break;
-		case 3:
-			opt++;
-			break;
-		default:
-			cout << "Wrong action" << endl;
+			switch (option)
+			{
+			case 1:
+				calibration();
+				break;
+			case 2:
+				setupUART();
+				prog();
+				break;
+			case 3:
+				opt++;
+				condition = true;
+				CloseHandle(hCOM); //close the handle
+				break;
+			default:
+				cout << "Wrong action" << endl;
+			}
 		}
 	}
 	
@@ -263,13 +271,11 @@ int prog()
 				
 				string msg = control(pose);
 				int len = msg.length();
-				char *UART_msg = new char[len + 1];
-				strcpy_s(UART_msg, 11, msg.c_str());
-				Send_UartComm(UART_msg, len);
+				Send_UartComm(msg,len);
 
 				cout << "POINTCAM " << pt.x << "," << pt.y << endl;
-				for (int i = 0; i < len; i++) cout << UART_msg[i];
 				cout << endl;
+				Read_UartComm();
 			}
 			
 			
@@ -287,8 +293,8 @@ int prog()
 
 			new_Point = false;
 		}
-		cv::waitKey(1);
-		if (charCheckForEscKey != 27) break;
+		charCheckForEscKey = cv::waitKey(1);
+		
 	}
 	CloseHandle(hCOM); //close the handle
 }
@@ -406,7 +412,7 @@ bool setupUART()
 {
 	DCB dcbParam;
 		hCOM = CreateFile("COM5",
-		GENERIC_WRITE,
+		GENERIC_WRITE | GENERIC_READ | GENERIC_EXECUTE,
 		0,
 		NULL,
 		OPEN_EXISTING,
@@ -432,11 +438,35 @@ bool setupUART()
 
 	return true;
 }
-bool Send_UartComm(char* data, int dat_len)
+bool Send_UartComm(string data, int dat_len)
 {
-		DWORD byteswritten;
-		bool retVal = WriteFile(hCOM, data, dat_len, &byteswritten, NULL);
-			return retVal;
+	bool retVal;
+	int i;
+
+	char *ch_data = new char [dat_len + 1];
+	strcpy_s(ch_data,9, data.c_str());
+
+	for (i = 0; i <= dat_len-1; i++)
+	{
+		DWORD byteswritten=0;
+		char buff[] = { ch_data[i] };
+		WriteFile(hCOM, buff, 1, &byteswritten, NULL);
+		cout << buff[0]<< endl;
+	}
+	if (i = dat_len) retVal = true;
+
+	return retVal;
+}
+bool Read_UartComm()
+{
+	char data[50];
+	DWORD bytesread;
+	bool retVal = ReadFile(hCOM, data, 50, &bytesread, NULL);
+	
+	cout << "wiadomosc: ";
+		for (int i = 0; i < 50; i++) cout << data[i];
+	cout << endl;
+	return retVal;
 }
 vector <double> calculate_markerVectors(vector<vector<cv::Point2f>> corners, cv::Point2d clickPt)
 {
@@ -500,15 +530,15 @@ string control(vector <double> position)
 	if (position[2] >= 3 || position[2] <= -3) {
 		
 		if (position[2] >= 3) {
-			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR-%de", v_val, v_val);		//turn left ; uart message to robot ; max lenght 11  ex.(L-100R-100e)
+			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR-%de", v_val, v_val);		//turn left ; uart message to robot ; length 8  ex.(L50R-50e)
 		}
 		if (position[2] <= -3) {
-			int ret = sprintf_s(control_msg, sizeof(control_msg), "L-%dR%de", v_val, v_val);		//turn right ; uart message to robot ; max lenght 11  (L-100R-100e)
+			int ret = sprintf_s(control_msg, sizeof(control_msg), "L-%dR%de", v_val, v_val);		//turn right ; uart message to robot ;  length 8  (L-50R50e)
 		}
 	}
 	else 
 	{
-		int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%de", v_val+20, v_val+20);		
+		int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%deX", v_val+20, v_val+20);		// length 7+1  (X)
 	}
 	
 	string control_srt(control_msg);
