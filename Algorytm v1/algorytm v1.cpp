@@ -28,7 +28,7 @@ static void saveCameraParams(string& filename, cv::Size& imageSize, cv::Mat& cam
 static void readCameraParams(string& filename, cv::Size& imageSize, cv::Mat& cameraMatrix, cv::Mat& distCoeffs);
 static void ClickCoordinates(int event, int x, int y, int flags, void* );
 vector <double> calculate_markerVectors(vector<vector<cv::Point2f>> corners, cv::Point2d clickPt);
-bool Send_UartComm(string data, int dat_len);
+bool Send_UartComm(char* data, int dat_len);
 bool Read_UartComm();
 
 string control(vector <double> position);
@@ -269,13 +269,31 @@ int prog()
 				pose = calculate_markerVectors(markerCorners, pt);
 				cout << "MARKER POSE " << pose[0] << "," << pose[1] << " theta:" << pose[2] <<endl;
 				
-				string msg = control(pose);
-				int len = msg.length();
-				Send_UartComm(msg,len);
+				double delta_pose[2] = { pose[0] - pt.x, pose[1] - pt.y };
+
+					if (abs(delta_pose[0]) > 20 || abs(delta_pose[1]) > 20) {
+
+						string msg = control(pose);
+
+						int len = msg.length();
+						char *UART_msg = new char[len + 1];
+						strcpy_s(UART_msg, 11, msg.c_str());
+						Send_UartComm(UART_msg, len);
+					}
+					else if (abs(delta_pose[0]) <= 20 || abs(delta_pose[1]) <= 20) {
+
+						string msg = "L00R00eX";
+
+						int len = msg.length();
+						char *UART_msg = new char[len + 1];
+						strcpy_s(UART_msg, 11, msg.c_str());
+						Send_UartComm(UART_msg, len);
+					}
 
 				cout << "POINTCAM " << pt.x << "," << pt.y << endl;
 				cout << endl;
 				Read_UartComm();
+
 			}
 			
 			
@@ -438,23 +456,11 @@ bool setupUART()
 
 	return true;
 }
-bool Send_UartComm(string data, int dat_len)
+bool Send_UartComm(char* data, int dat_len)
 {
-	bool retVal;
-	int i;
-
-	char *ch_data = new char [dat_len + 1];
-	strcpy_s(ch_data,9, data.c_str());
-
-	for (i = 0; i <= dat_len-1; i++)
-	{
-		DWORD byteswritten=0;
-		char buff[] = { ch_data[i] };
-		WriteFile(hCOM, buff, 1, &byteswritten, NULL);
-		cout << buff[0]<< endl;
-	}
-	if (i = dat_len) retVal = true;
-
+		DWORD byteswritten;
+		bool retVal = WriteFile(hCOM, data, dat_len, &byteswritten, NULL);
+	
 	return retVal;
 }
 bool Read_UartComm()
@@ -528,17 +534,16 @@ string control(vector <double> position)
 	
 
 	if (position[2] >= 3 || position[2] <= -3) {
-		
+
 		if (position[2] >= 3) {
 			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR-%de", v_val, v_val);		//turn left ; uart message to robot ; length 8  ex.(L50R-50e)
 		}
-		if (position[2] <= -3) {
+		else if (position[2] <= -3) {
 			int ret = sprintf_s(control_msg, sizeof(control_msg), "L-%dR%de", v_val, v_val);		//turn right ; uart message to robot ;  length 8  (L-50R50e)
 		}
 	}
-	else 
-	{
-		int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%deX", v_val+20, v_val+20);		// length 7+1  (X)
+	else {
+			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%deX", v_val + 20, v_val + 20);		// length 7+1  (X)
 	}
 	
 	string control_srt(control_msg);
