@@ -518,6 +518,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 					R_elem=0;
 					rx_index=0;
 
+					flag_L_R=0;
+
 					char data[50];
 					uint16_t size;
 					static uint8_t cnt;
