@@ -506,10 +506,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 				else if(flag_L_R == 'e'){
 
 					if(L_motor[0]=='-')L_motor_at=atoi(L_motor);
-					else L_motor_at=atoi(L_motor)*(-1);
+					else L_motor_at=atoi(L_motor);
 
-					if(R_motor[0]=='-')R_motor_at=atoi(L_motor);
-					else R_motor_at=atoi(R_motor)*(-1);
+					if(R_motor[0]=='-')R_motor_at=atoi(R_motor);
+					else R_motor_at=atoi(R_motor);
 
 					Control(L_motor_at,R_motor_at,initper);
 					memset(L_motor,0,sizeof(L_motor));
@@ -520,19 +520,18 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
 
 					flag_L_R=0;
 
-					char data[50];
-					uint16_t size;
-					static uint8_t cnt;
-					++cnt;
-					size = sprintf(data, "pulse na L %d.\n\r", LMot_Pulse);
-					HAL_UART_Transmit(&huart6, data, size,100);
+					//char data[18];
+					//uint16_t size;
+					//static uint8_t cnt;
+					//++cnt;
+					//size = sprintf(data, "pulse na L %d.\n\r", LMot_Pulse);
+					//HAL_UART_Transmit(&huart6, data, size,10);
 				}
    	  		}
    	  	}
 
     }
 
-    __HAL_UART_FLUSH_DRREGISTER(&huart6);
     HAL_UART_Receive_IT(&huart6, rx_buff, 1);
 }
 /* USER CODE END 4 */
