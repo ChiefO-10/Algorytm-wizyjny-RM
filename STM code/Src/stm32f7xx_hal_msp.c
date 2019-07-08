@@ -68,7 +68,7 @@ void Control(int PWMLeft, int PWMRight, int init_period){
 		L_dir = 1;
 	}
 	else if(PWMLeft == 0){
-			LMot_Pulse = 0;
+			LMot_Pulse = 99;
 			L_dir = 2;
 	}
 
@@ -81,7 +81,7 @@ void Control(int PWMLeft, int PWMRight, int init_period){
 		R_dir = 1;
 	}
 	else if(PWMRight == 0){
-			RMot_Pulse = 0;
+			RMot_Pulse = 99;
 			R_dir = 2;
 	}
 
