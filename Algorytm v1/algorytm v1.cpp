@@ -30,6 +30,7 @@ static void ClickCoordinates(int event, int x, int y, int flags, void* );
 vector <double> calculate_markerVectors(vector<vector<cv::Point2f>> corners, cv::Point2d clickPt);
 bool Send_UartComm(char* data, int dat_len);
 bool Read_UartComm();
+void stop();
 
 string control(vector <double> position);
 cv::Point2d pt(1,1);
@@ -229,7 +230,8 @@ int prog()
 	vector<cv::Vec3d> temp_rvecs, temp_tvecs;
 	cv::Mat rot_matrix= cv::Mat::zeros(3,3,CV_64FC1);	
 	const cv::Ptr<cv::aruco::Dictionary> markDict = cv::aruco::getPredefinedDictionary(cv::aruco::PREDEFINED_DICTIONARY_NAME::DICT_6X6_250);  //stworzenie obiektu dictionary bedacego markerem gotowego zestawu?
-
+	bool move = false;
+	int n = 0;
 
 	cv::VideoCapture capIP;
 	capIP.open("http://192.168.0.20:8080/video");				//pobranie obrazu z IPwebcam
@@ -244,6 +246,7 @@ int prog()
 	double iHeight = imageSize.height;
 	cout << "Frame resolution: " << iWidth << "x" << iHeight << endl;	//wartosc rozdziellczosci obrazu wejsciowego
 
+
 	char charCheckForEscKey = 0;
 	while (charCheckForEscKey != 27 && capIP.isOpened())								//petla przerywana przyciskiem esc
 	{
@@ -254,63 +257,69 @@ int prog()
 		vector<vector<cv::Point2f>> markerCorners;
 		vector <double> pose;
 		
+
 		cv::aruco::detectMarkers(frame, markDict, markerCorners, markerIds);
+		
+		cv::setMouseCallback("Video stream", ClickCoordinates, NULL);
+		if (new_Point == true) {
+			cout << "pt =" << pt.x << "," << pt.y << endl;
+			move = true;
+			new_Point = false;
+		}
 
 		if (markerIds.size() > 0) {
 
 			cv::aruco::estimatePoseSingleMarkers(markerCorners, 50, cameraMatrix, distCoeffs, temp_rvecs, temp_tvecs);
-			cv::aruco::drawDetectedMarkers(frame, markerCorners, markerIds);
-			for (int i = 0; i < markerIds.size(); i++)
-			cv::aruco::drawAxis(frame, cameraMatrix, distCoeffs, temp_rvecs[i], temp_tvecs[i], 2);
+			//cv::aruco::drawDetectedMarkers(frame, markerCorners, markerIds);
+			
+			//cv::aruco::drawAxis(frame, cameraMatrix, distCoeffs, temp_rvecs[i], temp_tvecs[i], 2);
 			
 			cv::Point3f tvec_3f(temp_tvecs[0][0], temp_tvecs[0][1], temp_tvecs[0][2]);	
 			
-			if (new_Point == true) {
+			if (move == true) {
 				pose = calculate_markerVectors(markerCorners, pt);
 				cout << "MARKER POSE " << pose[0] << "," << pose[1] << " theta:" << pose[2] <<endl;
 				
 				double delta_pose[2] = { pose[0] - pt.x, pose[1] - pt.y };
 
-					if (abs(delta_pose[0]) > 20 || abs(delta_pose[1]) > 20) {
-
-						string msg = control(pose);
-
+				if (abs(delta_pose[0]) > 20 || abs(delta_pose[1]) > 20) {
+					
+					n++;
+					string msg = control(pose);
+					if (n = 30) {
 						int len = msg.length();
 						char *UART_msg = new char[len + 1];
 						strcpy_s(UART_msg, 11, msg.c_str());
 						Send_UartComm(UART_msg, len);
+						//Read_UartComm();
+						n = 0;
+						cout << "msg OUT " << msg << endl;
 					}
-					else if (abs(delta_pose[0]) <= 20 || abs(delta_pose[1]) <= 20) {
+				}
+				else {
+					move = false;
+					stop();
+					cout << "Target attained" << endl;
+				}
 
-						string msg = "L00R00eX";
-
-						int len = msg.length();
-						char *UART_msg = new char[len + 1];
-						strcpy_s(UART_msg, 11, msg.c_str());
-						Send_UartComm(UART_msg, len);
-					}
-
-				cout << "POINTCAM " << pt.x << "," << pt.y << endl;
-				cout << endl;
-				Read_UartComm();
+				
 
 			}
-			
-			
-
-			
-			
+	
 		}
+		else if (move == true && markerIds.size() == 0)
+		{
+			
+			move = false;
+			stop();
+			cout << "Marker lost" << endl;
+		}
+		
 
 		cv::namedWindow("Video stream", CV_WINDOW_AUTOSIZE);		//okno wyswietlania
 		cv::imshow("Video stream", frame);						//wyswietlanie obrazu
 		
-		cv::setMouseCallback("Video stream", ClickCoordinates, NULL);
-		if (new_Point == true) {
-			cout << "pt =" << pt.x << "," << pt.y << endl;
-
-			new_Point = false;
-		}
+		
 		charCheckForEscKey = cv::waitKey(1);
 		
 	}
@@ -333,13 +342,13 @@ void video_capture(cv::VideoCapture& videocapture, cv::Mat& frame)
 }
 void video_capture_fast(cv::VideoCapture& videocapture, cv::Mat& frame)
 {
-	int i;
-	for (i = 0; i < 5; i++) {
+	//int i;
+	//for (i = 0; i < 8; i++) {
 		bool bFrameread_1;
 		bool bFrameRead_1 = videocapture.grab();				//wczytanie nowej klatki
 		if (!bFrameRead_1) {
 			cout << " error: Frame read failed" << endl;
-		}
+		//}
 	}
 	videocapture.retrieve(frame);
 }
@@ -465,12 +474,12 @@ bool Send_UartComm(char* data, int dat_len)
 }
 bool Read_UartComm()
 {
-	char data[50];
+	char data[18];
 	DWORD bytesread;
-	bool retVal = ReadFile(hCOM, data, 50, &bytesread, NULL);
+	bool retVal = ReadFile(hCOM, data, 18, &bytesread, NULL);
 	
-	cout << "wiadomosc: ";
-		for (int i = 0; i < 50; i++) cout << data[i];
+	cout << "msg IN: ";
+		for (int i = 0; i < 18; i++) cout << data[i];
 	cout << endl;
 	return retVal;
 }
@@ -529,24 +538,35 @@ vector <double> calculate_markerVectors(vector<vector<cv::Point2f>> corners, cv:
 }
 string control(vector <double> position)
 {
-	int v_val = 50;
+	int v_valL = 90;
+	int v_valR = 90;
 	char control_msg[11];
-	
+	int deg = 10; // deegree dead zone
 
-	if (position[2] >= 3 || position[2] <= -3) {
+	if (position[2] >= deg || position[2] <= -deg) {
 
-		if (position[2] >= 3) {
-			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR-%de", v_val, v_val);		//turn left ; uart message to robot ; length 8  ex.(L50R-50e)
+		if (position[2] > deg) {
+			int ret = sprintf_s(control_msg, sizeof(control_msg), "L-%dR%de", v_valL, v_valR);		//turn left ; uart message to robot ; length 8  ex.(L50R-50e)
 		}
-		else if (position[2] <= -3) {
-			int ret = sprintf_s(control_msg, sizeof(control_msg), "L-%dR%de", v_val, v_val);		//turn right ; uart message to robot ;  length 8  (L-50R50e)
+		else if (position[2] < -deg) {
+			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR-%de", v_valL, v_valR);		//turn right ; uart message to robot ;  length 8  (L-50R50e)
 		}
 	}
 	else {
-			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%deX", v_val + 20, v_val + 20);		// length 7+1  (X)
+		for (int n=0; n > 10; n++)stop();
+		
+		int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%deX", v_valL , v_valR);		// length 7+1  (X)
 	}
 	
 	string control_srt(control_msg);
 
 	return control_srt;
+}
+void stop(){
+	string msg = "L00R00eX";
+	int len = msg.length();
+	char *UART_msg = new char[len + 1];
+	strcpy_s(UART_msg, 11, msg.c_str());
+	Send_UartComm(UART_msg, len);
+	cout << "msg OUT " << msg << endl;
 }

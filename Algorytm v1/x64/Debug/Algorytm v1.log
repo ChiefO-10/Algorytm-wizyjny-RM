@@ -1,15 +1,15 @@
 ﻿  algorytm v1.cpp
-d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(95): warning C4244: 'argument': conversion from 'double' to '_Tp', possible loss of data
+d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(96): warning C4244: 'argument': conversion from 'double' to '_Tp', possible loss of data
           with
           [
               _Tp=int
           ]
-d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(181): warning C4244: 'argument': conversion from 'int' to '_Tp', possible loss of data
+d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(182): warning C4244: 'argument': conversion from 'int' to '_Tp', possible loss of data
           with
           [
               _Tp=float
           ]
-d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(266): warning C4244: 'argument': conversion from '_Tp' to '_Tp', possible loss of data
+d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(277): warning C4244: 'argument': conversion from '_Tp' to '_Tp', possible loss of data
           with
           [
               _Tp=double
@@ -18,12 +18,11 @@ d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(266): warning C4244: 'argument': co
           [
               _Tp=float
           ]
-d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(278): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(287): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(323): warning C4101: 'bFrameread_1': unreferenced local variable
-d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(338): warning C4101: 'bFrameread_1': unreferenced local variable
-d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(422): warning C4101: 'cor': unreferenced local variable
-d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(491): warning C4244: '=': conversion from '_Ty' to '_Tp', possible loss of data
+d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(290): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(332): warning C4101: 'bFrameread_1': unreferenced local variable
+d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(347): warning C4101: 'bFrameread_1': unreferenced local variable
+d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(431): warning C4101: 'cor': unreferenced local variable
+d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(500): warning C4244: '=': conversion from '_Ty' to '_Tp', possible loss of data
           with
           [
               _Ty=double
@@ -32,7 +31,7 @@ d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(491): warning C4244: '=': conversio
           [
               _Tp=float
           ]
-d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(492): warning C4244: '=': conversion from '_Ty' to '_Tp', possible loss of data
+d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(501): warning C4244: '=': conversion from '_Ty' to '_Tp', possible loss of data
           with
           [
               _Ty=double
@@ -41,7 +40,7 @@ d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(492): warning C4244: '=': conversio
           [
               _Tp=float
           ]
-d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(494): warning C4244: '=': conversion from '_Ty' to '_Tp', possible loss of data
+d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(503): warning C4244: '=': conversion from '_Ty' to '_Tp', possible loss of data
           with
           [
               _Ty=double
@@ -50,7 +49,7 @@ d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(494): warning C4244: '=': conversio
           [
               _Tp=float
           ]
-d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(495): warning C4244: '=': conversion from '_Ty' to '_Tp', possible loss of data
+d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(504): warning C4244: '=': conversion from '_Ty' to '_Tp', possible loss of data
           with
           [
               _Ty=double
@@ -59,7 +58,7 @@ d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(495): warning C4244: '=': conversio
           [
               _Tp=float
           ]
-d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(497): warning C4244: '=': conversion from '_Ty' to '_Tp', possible loss of data
+d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(506): warning C4244: '=': conversion from '_Ty' to '_Tp', possible loss of data
           with
           [
               _Ty=double
@@ -68,7 +67,7 @@ d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(497): warning C4244: '=': conversio
           [
               _Tp=float
           ]
-d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(498): warning C4244: '=': conversion from '_Ty' to '_Tp', possible loss of data
+d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(507): warning C4244: '=': conversion from '_Ty' to '_Tp', possible loss of data
           with
           [
               _Ty=double
@@ -77,5 +76,6 @@ d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(498): warning C4244: '=': conversio
           [
               _Tp=float
           ]
-d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(318): warning C4715: 'prog': not all control paths return a value
+d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(567): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+d:\projekt_mag_1\algorytm v1\algorytm v1.cpp(327): warning C4715: 'prog': not all control paths return a value
   Algorytm v1.vcxproj -> D:\projekt_mag_1\Algorytm v1\x64\Debug\Algorytm v1.exe
