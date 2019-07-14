@@ -2,6 +2,7 @@
 #include<opencv2/core/core.hpp>
 #include<opencv2/highgui/highgui.hpp>
 #include<opencv2/imgproc/imgproc.hpp>
+#include <fstream>
 
 #include <vector>
 #include "opencv2/aruco/dictionary.hpp"
@@ -32,7 +33,7 @@ bool Send_UartComm(char* data, int dat_len);
 bool Read_UartComm();
 void stop();
 
-string control(vector <double> position);
+string control(vector <double> position,double deltax, double deltay);
 cv::Point2d pt(1,1);
 bool new_Point = false;
 
@@ -220,8 +221,6 @@ int prog()
 {
 	cv::Mat frame;
 	cv::Mat frameGS;
-	
-	
 
 	string filename = "Parameters.xml";
 	cv::Mat cameraMatrix, distCoeffs;
@@ -229,9 +228,15 @@ int prog()
 	readCameraParams(filename, imageSize, cameraMatrix, distCoeffs);
 	vector<cv::Vec3d> temp_rvecs, temp_tvecs;
 	cv::Mat rot_matrix= cv::Mat::zeros(3,3,CV_64FC1);	
-	const cv::Ptr<cv::aruco::Dictionary> markDict = cv::aruco::getPredefinedDictionary(cv::aruco::PREDEFINED_DICTIONARY_NAME::DICT_6X6_250);  //stworzenie obiektu dictionary bedacego markerem gotowego zestawu?
+	const cv::Ptr<cv::aruco::Dictionary> markDict = cv::aruco::getPredefinedDictionary (cv::aruco::PREDEFINED_DICTIONARY_NAME::DICT_6X6_250);                               //stworzenie obiektu dictionary bedacego markerem gotowego zestawu?
 	bool move = false;
 	int n = 0;
+
+	void write_csv(float *a, int nrows, int ncols, std::ofstream &outs);
+	float a[5000][2];
+	int col=0;
+	int row=0;
+	ofstream XY;
 
 	cv::VideoCapture capIP;
 	capIP.open("http://192.168.0.20:8080/video");				//pobranie obrazu z IPwebcam
@@ -246,7 +251,7 @@ int prog()
 	double iHeight = imageSize.height;
 	cout << "Frame resolution: " << iWidth << "x" << iHeight << endl;	//wartosc rozdziellczosci obrazu wejsciowego
 
-
+	int marklost = 0;
 	char charCheckForEscKey = 0;
 	while (charCheckForEscKey != 27 && capIP.isOpened())								//petla przerywana przyciskiem esc
 	{
@@ -269,12 +274,13 @@ int prog()
 
 		if (markerIds.size() > 0) {
 
-			cv::aruco::estimatePoseSingleMarkers(markerCorners, 50, cameraMatrix, distCoeffs, temp_rvecs, temp_tvecs);
+			//cv::aruco::estimatePoseSingleMarkers(markerCorners, 50, cameraMatrix, distCoeffs, temp_rvecs, temp_tvecs);
+
 			//cv::aruco::drawDetectedMarkers(frame, markerCorners, markerIds);
 			
-			//cv::aruco::drawAxis(frame, cameraMatrix, distCoeffs, temp_rvecs[i], temp_tvecs[i], 2);
+			//cv::aruco::drawAxis(frame, cameraMatrix, distCoeffs, temp_rvecs[0], temp_tvecs[0], 50);
 			
-			cv::Point3f tvec_3f(temp_tvecs[0][0], temp_tvecs[0][1], temp_tvecs[0][2]);	
+			//cv::Point3f tvec_3f(temp_tvecs[0][0], temp_tvecs[0][1], temp_tvecs[0][2]);	
 			
 			if (move == true) {
 				pose = calculate_markerVectors(markerCorners, pt);
@@ -282,11 +288,14 @@ int prog()
 				
 				double delta_pose[2] = { pose[0] - pt.x, pose[1] - pt.y };
 
+
+				
+			
 				if (abs(delta_pose[0]) > 20 || abs(delta_pose[1]) > 20) {
 					
 					n++;
-					string msg = control(pose);
-					if (n = 30) {
+					string msg = control(pose, delta_pose[0],delta_pose[1]);
+					if (n = 25) {
 						int len = msg.length();
 						char *UART_msg = new char[len + 1];
 						strcpy_s(UART_msg, 11, msg.c_str());
@@ -294,12 +303,33 @@ int prog()
 						//Read_UartComm();
 						n = 0;
 						cout << "msg OUT " << msg << endl;
+
+						
+						col = 0;
+						a[row][col] = pose[0];
+						col = 1;
+						a[row][col] = pose[1];
+						row++;
+						
+						//for (col = 0; col < 1; col++)
+							//for (row = 0; row < 5000; row++)
+							//	a[row][col] = pose[0];
+						//for (col = 1; col < 2; col++)
+						//	for (row = 0; row < 5000; row++)
+							//	a[row][col] = pose[1];
 					}
 				}
 				else {
 					move = false;
 					stop();
 					cout << "Target attained" << endl;
+					XY.open("dane.csv");
+					XY << "START,START";
+					write_csv(a[0],5000,2, XY);
+					XY << "END,END";
+					XY.close();
+					row = 0;
+					//write_csv(b, 50, cout);
 				}
 
 				
@@ -310,9 +340,14 @@ int prog()
 		else if (move == true && markerIds.size() == 0)
 		{
 			
-			move = false;
-			stop();
-			cout << "Marker lost" << endl;
+			marklost++;
+
+			if (marklost > 60) {
+				move = false;
+				stop();
+				cout << "Marker lost" << endl;
+				marklost = 0;
+			}
 		}
 		
 
@@ -536,20 +571,45 @@ vector <double> calculate_markerVectors(vector<vector<cv::Point2f>> corners, cv:
 	
 	return pos_img;			// [x center, y center, theta]
 }
-string control(vector <double> position)
+string control(vector <double> position, double deltax, double deltay)
 {
-	int v_valL = 90;
-	int v_valR = 90;
+	
+	int v_valL = 85;
+	int v_valR = 85;
 	char control_msg[11];
-	int deg = 10; // deegree dead zone
+	int deg = 15; // deegree dead zone
+	int deg2 = 45;
+	int deg3 = 90;
+	if ((abs(deltax) < 25 || abs(deltay) < 25) && (position[2] <20 || position[2]>-20)){
+		v_valL = v_valL- 5;
+		v_valR = v_valL- 5;
+	}
 
-	if (position[2] >= deg || position[2] <= -deg) {
+	if (position[2] >= deg2 || position[2] <= -deg2) {
 
 		if (position[2] > deg) {
-			int ret = sprintf_s(control_msg, sizeof(control_msg), "L-%dR%de", v_valL, v_valR);		//turn left ; uart message to robot ; length 8  ex.(L50R-50e)
+			int ret = sprintf_s(control_msg, sizeof(control_msg), "L-%dR%de", v_valL-10, v_valR-10);		//turn left ; uart message to robot ; length 8  ex.(L50R-50e)
 		}
 		else if (position[2] < -deg) {
-			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR-%de", v_valL, v_valR);		//turn right ; uart message to robot ;  length 8  (L-50R50e)
+			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR-%de", v_valL-10, v_valR-10);		//turn right ; uart message to robot ;  length 8  (L-50R50e)
+		}
+	}
+	else if ((position[2] < deg2 || position[2] > -deg2) && (position[2] > deg || position[2] < -deg)) {
+
+		if (position[2] > deg && position[2] < deg2) {
+			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%dex", v_valL - 40, v_valR);		//turn left ; uart message to robot ; length 8  ex.(L50R-50e)
+		}
+		else if (position[2] < -deg && position[2] > -deg2 ) {
+			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%dex", v_valL, v_valR - 40);		//turn right ; uart message to robot ;  length 8  (L-50R50e)
+		}
+	}
+	else if ((position[2] < deg3 || position[2] > -deg3) && (position[2] > deg2 || position[2] < -deg2)) {
+
+		if (position[2] > deg2 && position[2] < deg3) {
+			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%dex", v_valL - 20, v_valR);		//turn left ; uart message to robot ; length 8  ex.(L50R-50e)
+		}
+		else if (position[2] < -deg2 && position[2] > -deg3) {
+			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%dex", v_valL, v_valR - 20);		//turn right ; uart message to robot ;  length 8  (L-50R50e)
 		}
 	}
 	else {
@@ -569,4 +629,18 @@ void stop(){
 	strcpy_s(UART_msg, 11, msg.c_str());
 	Send_UartComm(UART_msg, len);
 	cout << "msg OUT " << msg << endl;
+}
+void write_csv(float *a, int nrows, int ncols, std::ofstream &outs)
+{
+	for (int row = 0; row < nrows; row++)
+	{
+		for (int col = 0; col < ncols; col++)
+		{
+			outs << *a;
+			if (col < ncols - 1)
+				outs << ", ";
+			a++;
+		}
+		outs << std::endl;
+	}
 }
