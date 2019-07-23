@@ -175,7 +175,7 @@ int calibration()
 		cv::Mat cameraMatrix, distCoeffs;
 		//calibration
 		while (proceed == true) {
-			int a = 26;										//bok kwadratu szachownicy w mm
+			int a = 26;										//side of chessboard element in mm
 			vector<vector<cv::Point3f> > arrayObjectPoints;
 			vector<cv::Point3f> objectPoints;
 			for (int y = 0; y < 6; ++y) {
@@ -194,7 +194,7 @@ int calibration()
 
 			cv::Mat imageUndistorted;
 			undistort(frameCalib, imageUndistorted, cameraMatrix, distCoeffs);
-			cv::namedWindow("undist", CV_WINDOW_AUTOSIZE);		//okno wyswietlania
+			cv::namedWindow("undist", CV_WINDOW_AUTOSIZE);		//stream window
 			cv::imshow("undist", imageUndistorted);
 
 			string filename = "Parameters.xml";
@@ -239,7 +239,7 @@ int prog()
 	ofstream XY;
 
 	cv::VideoCapture capIP;
-	capIP.open("http://192.168.0.20:8080/video");				//pobranie obrazu z IPwebcam
+	capIP.open("http://192.168.0.20:8080/video");				//streaming video from  IPwebcam
 
 	if (!capIP.isOpened()) {                                  // if unable to open image
 		cout << "error: video stream unavailable"<<endl;     // show error message on command line
@@ -249,14 +249,14 @@ int prog()
 
 	double iWidth = imageSize.width;
 	double iHeight = imageSize.height;
-	cout << "Frame resolution: " << iWidth << "x" << iHeight << endl;	//wartosc rozdziellczosci obrazu wejsciowego
+	cout << "Frame resolution: " << iWidth << "x" << iHeight << endl;	
 
 	int marklost = 0;
 	char charCheckForEscKey = 0;
-	while (charCheckForEscKey != 27 && capIP.isOpened())								//petla przerywana przyciskiem esc
+	while (charCheckForEscKey != 27 && capIP.isOpened())								
 	{
 		video_capture_fast(capIP, frame);
-		//cv::cvtColor(frame, frameGS, CV_BGR2GRAY);					//zmiana klatki wejsciowej na odcienie szarosci
+		//cv::cvtColor(frame, frameGS, CV_BGR2GRAY);					
 
 		vector<int> markerIds;
 		vector<vector<cv::Point2f>> markerCorners;
@@ -328,7 +328,7 @@ int prog()
 					write_csv(a[0],5000,2, XY);
 					XY << "END,END";
 					XY.close();
-					row = 0;
+					
 					//write_csv(b, 50, cout);
 				}
 
@@ -581,8 +581,8 @@ string control(vector <double> position, double deltax, double deltay)
 	int deg2 = 45;
 	int deg3 = 90;
 	if ((abs(deltax) < 25 || abs(deltay) < 25) && (position[2] <20 || position[2]>-20)){
-		v_valL = v_valL- 5;
-		v_valR = v_valL- 5;
+		v_valL = v_valL- 3;
+		v_valR = v_valL- 3;
 	}
 
 	if (position[2] >= deg2 || position[2] <= -deg2) {
@@ -591,25 +591,25 @@ string control(vector <double> position, double deltax, double deltay)
 			int ret = sprintf_s(control_msg, sizeof(control_msg), "L-%dR%de", v_valL-10, v_valR-10);		//turn left ; uart message to robot ; length 8  ex.(L50R-50e)
 		}
 		else if (position[2] < -deg) {
-			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR-%de", v_valL-10, v_valR-10);		//turn right ; uart message to robot ;  length 8  (L-50R50e)
+			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR-%de", v_valL-10, v_valR-10);		//turn right ; uart message to robot ;  length 8  ex.(L-50R50e)
 		}
 	}
 	else if ((position[2] < deg2 || position[2] > -deg2) && (position[2] > deg || position[2] < -deg)) {
 
 		if (position[2] > deg && position[2] < deg2) {
-			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%dex", v_valL - 40, v_valR);		//turn left ; uart message to robot ; length 8  ex.(L50R-50e)
+			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%dex", v_valL - 30, v_valR);		//turn slightly left  
 		}
 		else if (position[2] < -deg && position[2] > -deg2 ) {
-			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%dex", v_valL, v_valR - 40);		//turn right ; uart message to robot ;  length 8  (L-50R50e)
+			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%dex", v_valL, v_valR - 30);		//turn slightly right 
 		}
 	}
 	else if ((position[2] < deg3 || position[2] > -deg3) && (position[2] > deg2 || position[2] < -deg2)) {
 
 		if (position[2] > deg2 && position[2] < deg3) {
-			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%dex", v_valL - 20, v_valR);		//turn left ; uart message to robot ; length 8  ex.(L50R-50e)
+			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%dex", v_valL - 20, v_valR);		//turn left ;
 		}
 		else if (position[2] < -deg2 && position[2] > -deg3) {
-			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%dex", v_valL, v_valR - 20);		//turn right ; uart message to robot ;  length 8  (L-50R50e)
+			int ret = sprintf_s(control_msg, sizeof(control_msg), "L%dR%dex", v_valL, v_valR - 20);		//turn right ;
 		}
 	}
 	else {
