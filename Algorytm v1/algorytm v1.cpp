@@ -19,7 +19,6 @@
 using namespace std;
 
 HANDLE hCOM;
-
 int calibration();
 int prog();
 bool setupUART();
@@ -69,12 +68,8 @@ int main()
 			}
 		}
 	}
-	
 	return(0);
 }
-
-
-
 int calibration()
 {
 
@@ -101,7 +96,6 @@ int calibration()
 	vector<vector<cv::Point2f>> detePoints;
 
 	cv::Size boardSize(9, 6);
-	//cv::TermCriteria criteria  (CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1);
 	bool calpass = false;
 	while (capCalib.isOpened()) {
 
@@ -167,8 +161,6 @@ int calibration()
 			
 		}
 
-	
-
 		vector<cv::Mat> rvecs, tvecs;
 		vector<float> reprojErrs;
 		double totalAvgErr = 0;
@@ -184,8 +176,6 @@ int calibration()
 			}
 			for (int n = 0; n <= 9; ++n)
 				arrayObjectPoints.push_back(objectPoints);
-
-			//objectPoints.resize(detePoints.size(), objectPoints[0]);
 
 			cameraMatrix = cv::Mat::eye(3, 3, CV_64F);
 			distCoeffs = cv::Mat::zeros(8, 1, CV_64F);
@@ -212,7 +202,6 @@ int calibration()
 		}
 		break;
 	}
-	
 	_getch();
 	return(0);
 }
@@ -262,7 +251,6 @@ int prog()
 		vector<vector<cv::Point2f>> markerCorners;
 		vector <double> pose;
 		
-
 		cv::aruco::detectMarkers(frame, markDict, markerCorners, markerIds);
 		
 		cv::setMouseCallback("Video stream", ClickCoordinates, NULL);
@@ -273,24 +261,13 @@ int prog()
 		}
 
 		if (markerIds.size() > 0) {
-
-			//cv::aruco::estimatePoseSingleMarkers(markerCorners, 50, cameraMatrix, distCoeffs, temp_rvecs, temp_tvecs);
-
-			//cv::aruco::drawDetectedMarkers(frame, markerCorners, markerIds);
-			
-			//cv::aruco::drawAxis(frame, cameraMatrix, distCoeffs, temp_rvecs[0], temp_tvecs[0], 50);
-			
-			//cv::Point3f tvec_3f(temp_tvecs[0][0], temp_tvecs[0][1], temp_tvecs[0][2]);	
-			
+	
 			if (move == true) {
 				pose = calculate_markerVectors(markerCorners, pt);
 				cout << "MARKER POSE " << pose[0] << "," << pose[1] << " theta:" << pose[2] <<endl;
 				
 				double delta_pose[2] = { pose[0] - pt.x, pose[1] - pt.y };
 
-
-				
-			
 				if (abs(delta_pose[0]) > 20 || abs(delta_pose[1]) > 20) {
 					
 					n++;
@@ -303,7 +280,6 @@ int prog()
 						//Read_UartComm();
 						n = 0;
 						cout << "msg OUT " << msg << endl;
-
 						
 						col = 0;
 						a[row][col] = pose[0];
@@ -326,16 +302,16 @@ int prog()
 					XY.open("dane.csv");
 					XY << "START,START";
 					write_csv(a[0],5000,2, XY);
-					XY << "END,END";
 					XY.close();
-					
-					//write_csv(b, 50, cout);
+
+					cv::aruco::detectMarkers(frame, markDict, markerCorners, markerIds);
+					cv::aruco::estimatePoseSingleMarkers(markerCorners, 50, cameraMatrix, distCoeffs, temp_rvecs, temp_tvecs);
+					cv::aruco::drawDetectedMarkers(frame, markerCorners, markerIds);
+					cv::aruco::drawAxis(frame, cameraMatrix, distCoeffs, temp_rvecs[0], temp_tvecs[0], 50);
+					cv::Point3f tvec_3f(temp_tvecs[0][0], temp_tvecs[0][1], temp_tvecs[0][2]);	
+					cout << "Real position: X" << temp_tvecs[0][0] << " Y"<< temp_tvecs[0][1] << " Z"<< temp_tvecs[0][2] <<endl;
 				}
-
-				
-
 			}
-	
 		}
 		else if (move == true && markerIds.size() == 0)
 		{
@@ -350,13 +326,10 @@ int prog()
 			}
 		}
 		
-
 		cv::namedWindow("Video stream", CV_WINDOW_AUTOSIZE);		//okno wyswietlania
 		cv::imshow("Video stream", frame);						//wyswietlanie obrazu
 		
-		
 		charCheckForEscKey = cv::waitKey(1);
-		
 	}
 	CloseHandle(hCOM); //close the handle
 }
@@ -370,69 +343,19 @@ void video_capture(cv::VideoCapture& videocapture, cv::Mat& frame)
 		if (!bFrameRead_1) {
 			cout << " error: Frame read failed" << endl;
 		}
-		
-		
 	}
 	videocapture.retrieve(frame);
 }
 void video_capture_fast(cv::VideoCapture& videocapture, cv::Mat& frame)
 {
-	//int i;
-	//for (i = 0; i < 8; i++) {
 		bool bFrameread_1;
 		bool bFrameRead_1 = videocapture.grab();				//wczytanie nowej klatki
 		if (!bFrameRead_1) {
 			cout << " error: Frame read failed" << endl;
-		//}
 	}
 	videocapture.retrieve(frame);
 }
 //zapis do pliku
-class Data
-{
-	public:
-		Data() : imageSize(0,0),cameraMatrix(),distCoeffs(),rvecs(0),tvecs(0) {}
-
-	public:
-		cv::Size imageSize;
-		cv::Mat cameraMatrix;
-		cv::Mat distCoeffs;
-		vector<cv::Mat> rvecs;
-		vector<cv::Mat> tvecs;
-
-		void write(cv::FileStorage& fs) const                        //Write serialization for this class
-		{
-			fs <<"{" 
-			<<"image_Width" << imageSize.width 
-			<< "image_Height" << imageSize.height
-			<< "Camera_Matrix" << cameraMatrix
-			<< "Distortion_Coefficients" << distCoeffs
-			<< "rvecs" << rvecs 
-			<< "tvecs" << tvecs 
-			<< "}";
-		}
-
-		void read(const cv::FileNode& node)							//Read serialization for this class
-		{
-			node["image.Width"] >> imageSize.width;
-			node["image.Height"] >> imageSize.height;
-			node["Camera_Matrix"] >> cameraMatrix;
-			node["Distortion_Coefficients"] >> distCoeffs;
-			node["rvecs"] >> rvecs;
-			node["tvecs"] >> tvecs;
-		}
-};
-void write(cv::FileStorage& fs, const std::string&, const Data& x)
-{
-	x.write(fs);
-}
-void read(const cv::FileNode& node, Data& x, const Data& default_value = Data())
-{
-	if (node.empty())
-		x = default_value;
-	else
-		x.read(node);
-}
 
 static void saveCameraParams(string& filename, cv::Size& imageSize, cv::Mat& cameraMatrix, cv::Mat& distCoeffs)
 {
@@ -442,7 +365,6 @@ static void saveCameraParams(string& filename, cv::Size& imageSize, cv::Mat& cam
 	fs << "image_Height" << imageSize.height;
 	fs << "Camera_Matrix" << cameraMatrix;                  // cv::Mat
 	fs << "Distortion_Coefficients" << distCoeffs;
-	
 	
 	fs.release();
 }
@@ -574,7 +496,7 @@ vector <double> calculate_markerVectors(vector<vector<cv::Point2f>> corners, cv:
 string control(vector <double> position, double deltax, double deltay)
 {
 	
-	int v_valL = 85;
+	int v_valL = 85;      // speed valuest ; variable for calibration
 	int v_valR = 85;
 	char control_msg[11];
 	int deg = 15; // deegree dead zone
